@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multiplayer FPS Game – Premium Cheat Client</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    body { margin: 0; overflow: hidden; background: #0a0a0a; }
+    canvas { display: block; }
+    #hud, #crosshair, #status, #playerList, #chat, #chatInput, #modMenu, #killFeed, #minimap {
+      position: absolute;
+      font-family: 'Orbitron', sans-serif;
+      z-index: 10;
+      color: #ffffff;
+    }
+    #hud { top: 15px; left: 15px; font-size: 20px; text-shadow: 0 0 8px #ff4444; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; }
+    #crosshair { top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #ff4444; pointer-events: none; text-shadow: 0 0 5px #000; }
+    #status { top: 15px; right: 15px; font-size: 16px; color: #00ff00; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; }
+    #playerList { top: 70px; right: 15px; font-size: 14px; color: #00ff00; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; max-width: 220px; }
+    #chat { bottom: 15px; left: 15px; width: 400px; max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 10px; font-size: 14px; }
+    #chatInput { bottom: 280px; left: 15px; width: 400px; display: none; font-size: 14px; padding: 10px; border-radius: 10px; border: none; outline: none; background: rgba(255,255,255,0.95); color: #000; }
+    #modMenu {
+      top: 50%; left: 50%; transform: translate(-50%, -50%); width: 600px; background: linear-gradient(135deg, rgba(10,10,10,0.98), rgba(30,30,30,0.98));
+      padding: 30px; border-radius: 20px; border: 6px solid #ff4444; box-shadow: 0 0 40px rgba(255,0,0,0.9), inset 0 0 25px rgba(255,0,0,0.6);
+      display: none; z-index: 100; transition: all 0.3s ease; backdrop-filter: blur(8px);
+    }
+    #modMenu h2 { color: #ff4444; margin: 0 0 20px; font-size: 28px; text-align: center; text-shadow: 0 0 8px #000; }
+    #modMenu .category-tabs { display: flex; justify-content: space-around; margin-bottom: 20px; }
+    #modMenu .category-tabs button {
+      background: #333; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;
+      font-size: 16px; transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+      flex: 1; margin: 0 5px; font-family: 'Orbitron', sans-serif;
+    }
+    #modMenu .category-tabs button.active { background: #ff4444; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
+    #modMenu .category-tabs button:hover { background: #ff6666; transform: scale(1.05); }
+    #modMenu .category-content { display: none; }
+    #modMenu .category-content.active { display: block; }
+    #modMenu .category { margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+    #modMenu .category h3 { color: #ff6666; margin: 0 0 15px; font-size: 20px; }
+    #modMenu label { display: flex; align-items: center; margin: 12px 0; font-size: 16px; color: #fff; cursor: pointer; transition: color 0.2s ease; }
+    #modMenu label:hover { color: #ff9999; }
+    #modMenu input[type="checkbox"] { 
+      appearance: none; width: 26px; height: 26px; background: #222; border: 2px solid #ff4444; border-radius: 6px; margin-right: 15px; 
+      position: relative; transition: background 0.2s ease;
+    }
+    #modMenu input[type="checkbox"]:checked { background: #ff4444; }
+    #modMenu input[type="checkbox"]:checked::after {
+      content: '✔'; color: #000; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px;
+    }
+    #modMenu button.close { 
+      background: #ff4444; color: #fff; border: none; padding: 12px 30px; border-radius: 10px; cursor: pointer; 
+      font-size: 18px; margin-top: 20px; width: 100%; transition: background 0.2s ease, transform 0.1s ease;
+    }
+    #modMenu button.close:hover { background: #ff6666; transform: scale(1.03); }
+    #killFeed { top: 15px; right: 250px; width: 350px; max-height: 250px; overflow-y: auto; font-size: 14px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 10px; }
+    #minimap { bottom: 15px; right: 15px; width: 250px; height: 250px; background: rgba(0,0,0,0.85); border-radius: 15px; overflow: hidden; border: 2px solid #ff4444; }
+    #minimapCanvas { width: 100%; height: 100%; }
+    #espCanvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="hud">Health: <span id="health">100</span> | Ammo: <span id="ammo">30</span> | Score: <span id="score">0</span></div>
+  <div id="crosshair">✛</div>
+  <div id="status">Connecting...</div>
+  <div id="playerList">Players:<br/></div>
+  <div id="chat"></div>
+  <input id="chatInput" type="text" placeholder="Type your message and press Enter..." />
+  <div id="modMenu">
+    <h2>Emulation's Premium Cheat Client</h2>
+    <div class="category-tabs">
+      <button class="tab-button active" data-tab="combat">Combat</button>
+      <button class="tab-button" data-tab="visual">Visual</button>
+      <button class="tab-button" data-tab="gameplay">Gameplay</button>
+      <button class="tab-button" data-tab="settings">Settings</button>
+    </div>
+    <div class="category-content active" id="combat">
+      <div class="category">
+        <h3>Combat Mods</h3>
+        <label><input type="checkbox" id="aimbotToggle"> Aimbot (Auto-aim)</label>
+        <label><input type="checkbox" id="triggerbotToggle"> Triggerbot (Auto-shoot)</label>
+        <label><input type="checkbox" id="rapidFireToggle"> Rapid Fire</label>
+        <label><input type="checkbox" id="noRecoilToggle"> No Recoil</label>
+        <label><input type="checkbox" id="infAmmoToggle"> Infinite Ammo</label>
+        <label><input type="checkbox" id="oneShotToggle"> One-Shot Kill</label>
+        <label><input type="checkbox" id="autoReloadToggle"> Auto Reload</label>
+        <label><input type="checkbox" id="bulletPenToggle"> Bullet Penetration</label>
+        <label><input type="checkbox" id="silentAimToggle"> Silent Aim</label>
+      </div>
+    </div>
+    <div class="category-content" id="visual">
+      <div class="category">
+        <h3>Visual Mods</h3>
+        <label><input type="checkbox" id="espToggle"> ESP (2D Boxes + Health)</label>
+        <label><input type="checkbox" id="tracersToggle"> Cursor Tracers</label>
+        <label><input type="checkbox" id="fovToggle"> Wide FOV (90°)</label>
+        <label><input type="checkbox" id="nightVisionToggle"> Night Vision</label>
+        <label><input type="checkbox" id="fullbrightToggle"> Fullbright</label>
+        <label><input type="checkbox" id="nameTagsToggle"> Name Tags</label>
+        <label><input type="checkbox" id="chamsToggle"> Chams (Glow Effect)</label>
+      </div>
+    </div>
+    <div class="category-content" id="gameplay">
+      <div class="category">
+        <h3>Gameplay Mods</h3>
+        <label><input type="checkbox" id="speedToggle"> Speed Hack (2x)</label>
+        <label><input type="checkbox" id="godModeToggle"> God Mode</label>
+        <label><input type="checkbox" id="superJumpToggle"> Super Jump</label>
+        <label><input type="checkbox" id="noClipToggle"> No Clip</label>
+        <label><input type="checkbox" id="fastRespawnToggle"> Fast Respawn</label>
+        <label><input type="checkbox" id="autoBunnyHopToggle"> Auto Bunny Hop</label>
+      </div>
+    </div>
+    <div class="category-content" id="settings">
+      <div class="category">
+        <h3>Settings</h3>
+        <label>Crosshair Size: <input type="range" id="crosshairSize" min="10" max="40" value="24"></label>
+        <label>ESP Opacity: <input type="range" id="espOpacity" min="0.1" max="1" step="0.1" value="1"></label>
+        <label>Tracer Length: <input type="range" id="tracerLength" min="0.5" max="2" step="0.1" value="1"></label>
+      </div>
+    </div>
+    <button class="close" onclick="document.getElementById('modMenu').style.display='none';controls.lock();">Close Menu</button>
+  </div>
+  <div id="killFeed"></div>
+  <div id="minimap"><canvas id="minimapCanvas"></canvas></div>
+  <canvas id="espCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/examples/js/controls/PointerLockControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // Solid blue skybox
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.PointerLockControls(camera, document.body);
+    document.body.addEventListener('click', () => controls.lock());
+    scene.add(controls.getObject());
+
+    // Game state
+    let health = 100, ammo = 30, score = 0, isDead = false, isJumping = false, velocityY = 0;
+    const maxAmmo = 30, shootCooldownTime = 15;
+    let shootCooldown = 0, reloadCooldown = 0;
+    const healthDisplay = document.getElementById("health");
+    const ammoDisplay = document.getElementById("ammo");
+    const scoreDisplay = document.getElementById("score");
+    const statusDisplay = document.getElementById("status");
+    const playerListDisplay = document.getElementById("playerList");
+    const chatDisplay = document.getElementById("chat");
+    const chatInput = document.getElementById("chatInput");
+    const killFeed = document.getElementById("killFeed");
+    const minimapCanvas = document.getElementById("minimapCanvas");
+    const minimapCtx = minimapCanvas.getContext("2d");
+    const espCanvas = document.getElementById("espCanvas");
+    const espCtx = espCanvas.getContext("2d");
+    const crosshair = document.getElementById("crosshair");
+    const keys = {};
+
+    // Mod menu settings
+    let crosshairSize = 24, espOpacity = 1, tracerLength = 1;
+    document.getElementById("crosshairSize").addEventListener('input', e => {
+      crosshairSize = parseFloat(e.target.value);
+      crosshair.style.fontSize = `${crosshairSize}px`;
+    });
+    document.getElementById("espOpacity").addEventListener('input', e => {
+      espOpacity = parseFloat(e.target.value);
+    });
+    document.getElementById("tracerLength").addEventListener('input', e => {
+      tracerLength = parseFloat(e.target.value);
+    });
+
+    // Category tab switching
+    const tabs = document.querySelectorAll('.tab-button');
+    const contents = document.querySelectorAll('.category-content');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        contents.forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Control fixes
+    document.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (e.key === '/' && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
+        e.preventDefault();
+        chatInput.style.display = "block";
+        chatInput.focus();
+        controls.unlock();
+      } else if (e.key === 'Escape') {
+        chatInput.value = "";
+        chatInput.style.display = "none";
+        modMenu.style.display = "none";
+        controls.lock();
+      } else if (e.key === 'r' && !isDead && ammo < maxAmmo && reloadCooldown === 0 && !mods.infAmmo && !mods.autoReload) {
+        reloadCooldown = 60;
+        ammo = 0;
+        setTimeout(() => { ammo = maxAmmo; }, 1000);
+      } else if (e.key === ';') {
+        modMenu.style.display = modMenu.style.display === "none" ? "block" : "none";
+        if (modMenu.style.display === "block") controls.unlock();
+        else controls.lock();
+      }
+    });
+    document.addEventListener('keyup', e => {
+      keys[e.code] = false;
+      if (mods.autoBunnyHop && e.code === 'Space' && !isDead) {
+        setTimeout(() => { if (!isJumping) { velocityY = mods.superJump ? 0.4 : 0.2; isJumping = true; } }, 10);
+      }
+    });
+
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const msg = chatInput.value.trim();
+        if (msg) sendChatMessage(msg);
+        chatInput.value = '';
+        chatInput.style.display = "none";
+        controls.lock();
+      }
+      e.stopPropagation();
+    });
+
+    // Enhanced lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // Realistic floor with texture
+    const textureLoader = new THREE.TextureLoader();
+    const floorTexture = textureLoader.load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
+    floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+    floorTexture.repeat.set(15, 15);
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.7, metalness: 0.3 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Obstacles with textures
+    const colors = [0x0055ff, 0xff3333, 0x33cc33, 0xffff33];
+    const obstacles = [];
+    const wallTexture = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
+    for (let i = 0; i < 20; i++) {
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 6, 2),
+        new THREE.MeshStandardMaterial({ map: wallTexture, color: colors[i % colors.length], roughness: 0.8 })
+      );
+      box.position.set((Math.random() - 0.5) * 90, 3, (Math.random() - 0.5) * 90);
+      box.castShadow = true;
+      box.receiveShadow = true;
+      scene.add(box);
+      obstacles.push(box);
+    }
+
+    // Map boundaries
+    const boundaryMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.8, metalness: 0.4 });
+    const boundaries = [
+      new THREE.Mesh(new THREE.BoxGeometry(200, 20, 1), boundaryMaterial),
+      new THREE.Mesh(new THREE.BoxGeometry(200, 20, 1), boundaryMaterial),
+      new THREE.Mesh(new THREE.BoxGeometry(1, 20, 200), boundaryMaterial),
+      new THREE.Mesh(new THREE.BoxGeometry(1, 20, 200), boundaryMaterial)
+    ];
+    boundaries[0].position.set(0, 10, -100);
+    boundaries[1].position.set(0, 10, 100);
+    boundaries[2].position.set(100, 10, 0);
+    boundaries[3].position.set(-100, 10, 0);
+    boundaries.forEach(b => { b.receiveShadow = true; b.castShadow = true; scene.add(b); });
+
+    function collides(pos) {
+      if (Math.abs(pos.x) > 98 || Math.abs(pos.z) > 98) return true;
+      return obstacles.some(o =>
+        Math.abs(pos.x - o.position.x) < 3 &&
+        Math.abs(pos.z - o.position.z) < 3
+      );
+    }
+
+    camera.position.set(0, 2, 10);
+    controls.getObject().position.set(0, 1.6, 10);
+
+    // Player networking
+    const ROOM_ID = "shared-room";
+    let peer, isHost = false;
+    const connections = {}, remotePlayers = {};
+
+    function updatePlayerList() {
+      let html = "Players:<br/>You (" + score + ")<br/>";
+      for (const id in remotePlayers) html += id + " (" + remotePlayers[id].health + "HP, " + (remotePlayers[id].score || 0) + ")<br/>";
+      playerListDisplay.innerHTML = html;
+    }
+
+    function createRemoteMesh() {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 2, 32),
+        new THREE.MeshStandardMaterial({ color: 0x0000ff, roughness: 0.6, metalness: 0.2 })
+      );
+      body.position.y = 1;
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.6, metalness: 0.2 })
+      );
+      head.position.set(0, 2, 0);
+      group.add(body, head);
+      group.castShadow = true;
+      return group;
+    }
+
+    function addChatMessage(sender, message) {
+      const d = document.createElement('div');
+      d.textContent = sender + ": " + message;
+      chatDisplay.appendChild(d);
+      chatDisplay.scrollTop = chatDisplay.scrollHeight;
+    }
+
+    function addKillFeed(killer, victim) {
+      const d = document.createElement('div');
+      d.textContent = `${killer} eliminated ${victim}`;
+      d.style.color = '#ff4444';
+      killFeed.insertBefore(d, killFeed.firstChild);
+      setTimeout(() => d.remove(), 5000);
+    }
+
+    function setupConnection(conn) {
+      connections[conn.peer] = conn;
+      conn.on('data', data => {
+        if (data.type === 'position') {
+          if (!remotePlayers[conn.peer]) {
+            const mesh = createRemoteMesh();
+            scene.add(mesh);
+            remotePlayers[conn.peer] = { mesh, health: 100, score: 0 };
+            updatePlayerList();
+          }
+          remotePlayers[conn.peer].mesh.position.set(data.x, 1, data.z);
+          remotePlayers[conn.peer].mesh.rotation.y = data.rotationY || 0;
+          remotePlayers[conn.peer].health = data.health || 100;
+          remotePlayers[conn.peer].score = data.score || 0;
+          updatePlayerList();
+        } else if (data.type === 'hit' && !isDead && !mods.godMode) {
+          health -= mods.oneShot ? 100 : 25;
+          if (health <= 0) {
+            dieAndRespawn();
+            addKillFeed(conn.peer, "You");
+            for (const id in connections) connections[id].send({ type: 'kill', killer: conn.peer, victim: "You" });
+            if (connections[conn.peer]) connections[conn.peer].send({ type: 'score', score: (remotePlayers[conn.peer].score || 0) + 1 });
+          }
+        } else if (data.type === 'chat') {
+          addChatMessage(conn.peer, data.message);
+        } else if (data.type === 'kill') {
+          addKillFeed(data.killer, data.victim);
+        } else if (data.type === 'score') {
+          remotePlayers[conn.peer].score = data.score;
+          updatePlayerList();
+        }
+      });
+      conn.on('close', () => {
+        if (remotePlayers[conn.peer]) {
+          scene.remove(remotePlayers[conn.peer].mesh);
+          delete remotePlayers[conn.peer];
+          updatePlayerList();
+        }
+        delete connections[conn.peer];
+      });
+    }
+
+    function startPeerAsHost() {
+      peer = new Peer(ROOM_ID, { debug: 1 });
+      peer.on('open', () => { statusDisplay.textContent = "Connected as Host"; isHost = true; });
+      peer.on('connection', setupConnection);
+      peer.on('error', err => { if (err.type === 'unavailable-id') startPeerAsClient(); });
+    }
+
+    function startPeerAsClient() {
+      peer = new Peer({ debug: 1 });
+      peer.on('open', () => {
+        statusDisplay.textContent = "Connected as Client";
+        const conn = peer.connect(ROOM_ID);
+        conn.on('open', () => setupConnection(conn));
+      });
+    }
+
+    startPeerAsHost();
+
+    function sendChatMessage(message) {
+      addChatMessage("You", message);
+      for (const id in connections) {
+        if (connections[id].open)
+          connections[id].send({ type: 'chat', message });
+      }
+    }
+
+    const bullets = [];
+    function spawnBullet() {
+      if (ammo <= 0 && !mods.infAmmo || reloadCooldown > 0) return;
+      if (!mods.infAmmo) ammo--;
+      const bullet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 16, 16),
+        new THREE.MeshBasicMaterial({ color: mods.noRecoil ? 0x00ff00 : 0xff0000 })
+      );
+      bullet.position.copy(camera.position);
+      bullet.direction = camera.getWorldDirection(new THREE.Vector3()).clone();
+      if (!mods.noRecoil && !mods.silentAim) {
+        bullet.direction.x += (Math.random() - 0.5) * 0.04;
+        bullet.direction.y += (Math.random() - 0.5) * 0.04;
+      }
+      bullet.velocityY = 0;
+      scene.add(bullet);
+      bullets.push(bullet);
+      if (mods.silentAim) {
+        const best = Object.values(remotePlayers).reduce((best, rp) => {
+          const d = camera.position.distanceTo(rp.mesh.position);
+          return d < best.dist ? { rp, dist: d } : best;
+        }, { dist: Infinity, rp: null });
+        if (best.rp) {
+          bullet.direction = best.rp.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)).sub(bullet.position).normalize();
+        }
+      }
+    }
+
+    document.addEventListener('click', () => {
+      if (!isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block")
+        spawnBullet();
+    });
+
+    function checkBulletHit(b) {
+      for (const id in remotePlayers) {
+        const p = remotePlayers[id];
+        if (mods.bulletPen || b.position.distanceTo(p.mesh.position) < 1.5) {
+          connections[id]?.send({ type: 'hit' });
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function dieAndRespawn() {
+      if (mods.godMode) return;
+      isDead = true;
+      health = 0;
+      healthDisplay.textContent = "DEAD";
+      controls.getObject().position.set(999, 999, 999);
+      const respawnTime = mods.fastRespawn ? 1000 : 3000;
+      setTimeout(() => {
+        isDead = false;
+        health = 100;
+        ammo = maxAmmo;
+        controls.getObject().position.set(Math.random() * 20 - 10, 1.6, Math.random() * 20 - 10);
+      }, respawnTime);
+    }
+
+    // Mod menu
+    let mods = { 
+      tracers: false, aimbot: false, esp: false, triggerbot: false, rapidFire: false, noRecoil: false, 
+      infAmmo: false, fov: false, speed: false, godMode: false, oneShot: false, autoReload: false, 
+      nightVision: false, fullbright: false, noClip: false, bulletPen: false, fastRespawn: false, 
+      nameTags: false, silentAim: false, autoBunnyHop: false, chams: false 
+    };
+    const modMenu = document.getElementById("modMenu");
+    ["esp", "tracers", "aimbot", "triggerbot", "rapidFire", "noRecoil", "infAmmo", "fov", "speed", 
+     "godMode", "oneShot", "autoReload", "nightVision", "fullbright", "noClip", "bulletPen", 
+     "fastRespawn", "nameTags", "silentAim", "autoBunnyHop", "chams"].forEach(name => {
+      const el = document.getElementById(name + "Toggle");
+      el.onchange = e => {
+        mods[name] = e.target.checked;
+        if (name === "fov") {
+          camera.fov = mods.fov ? 90 : 75;
+          camera.updateProjectionMatrix();
+        }
+        if (name === "nightVision") {
+          ambientLight.intensity = mods.nightVision ? 0.9 : 0.5;
+        }
+        if (name === "fullbright") {
+          dirLight.intensity = mods.fullbright ? 1.8 : 0.8;
+          ambientLight.intensity = mods.fullbright ? 1.2 : 0.5;
+        }
+        if (name === "chams") {
+          Object.values(remotePlayers).forEach(p => {
+            p.mesh.traverse(child => {
+              if (child.isMesh) {
+                child.material.emissive.set(mods.chams ? 0xff4444 : 0x000000);
+                child.material.emissiveIntensity = mods.chams ? 0.5 : 0;
+              }
+            });
+          });
+        }
+      };
+    });
+
+    // Visual helpers
+    const tracerLines = [];
+    function clearHelpers() {
+      tracerLines.forEach(l => scene.remove(l)); tracerLines.length = 0;
+      espCtx.clearRect(0, 0, espCanvas.width, espCanvas.height);
+    }
+
+    function updateESPAndTracers() {
+      clearHelpers();
+      espCanvas.width = window.innerWidth;
+      espCanvas.height = window.innerHeight;
+      espCtx.strokeStyle = `rgba(0, 255, 0, ${espOpacity})`;
+      espCtx.fillStyle = `rgba(255, 255, 255, ${espOpacity})`;
+      espCtx.font = '14px Orbitron';
+      espCtx.lineWidth = 3;
+      const eye = camera.position.clone();
+      for (const id in remotePlayers) {
+        const enemy = remotePlayers[id];
+        if (mods.esp) {
+          const pos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
+          const screenPos = pos.project(camera);
+          const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
+          const dist = camera.position.distanceTo(enemy.mesh.position);
+          const size = Math.max(20, 1200 / dist);
+          espCtx.strokeRect(x - size / 2, y - size * 1.5, size, size * 2);
+          espCtx.fillText(`${id} [${enemy.health}HP]`, x - size / 2, y - size * 1.6);
+        }
+        if (mods.nameTags && !mods.esp) {
+          const pos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+          const screenPos = pos.project(camera);
+          const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
+          espCtx.fillText(`${id} [${enemy.health}HP]`, x - 20, y - 30);
+        }
+        if (mods.tracers && !isDead) {
+          const target = enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
+          const start = eye.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(tracerLength));
+          const lineGeo = new THREE.BufferGeometry().setFromPoints([start, target]);
+          const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: false });
+          const line = new THREE.Line(lineGeo, lineMat);
+          line.renderOrder = 999;
+          tracerLines.push(line);
+          scene.add(line);
+        }
+      }
+    }
+
+    // Minimap
+    function updateMinimap() {
+      minimapCanvas.width = 250;
+      minimapCanvas.height = 250;
+      minimapCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      minimapCtx.fillRect(0, 0, 250, 250);
+      minimapCtx.fillStyle = '#00ff00';
+      const px = (controls.getObject().position.x + 100) / 200 * 250;
+      const pz = (controls.getObject().position.z + 100) / 200 * 250;
+      minimapCtx.beginPath();
+      minimapCtx.arc(px, pz, 6, 0, Math.PI * 2);
+      minimapCtx.fill();
+      minimapCtx.fillStyle = '#ff0000';
+      for (const id in remotePlayers) {
+        const p = remotePlayers[id].mesh.position;
+        const x = (p.x + 100) / 200 * 250;
+        const z = (p.z + 100) / 200 * 250;
+        minimapCtx.beginPath();
+        minimapCtx.arc(x, z, 6, 0, Math.PI * 2);
+        minimapCtx.fill();
+      }
+      minimapCtx.strokeStyle = '#ffffff';
+      minimapCtx.lineWidth = 3;
+      obstacles.forEach(o => {
+        const x = (o.position.x + 100) / 200 * 250;
+        const z = (o.position.z + 100) / 200 * 250;
+        minimapCtx.strokeRect(x - 12, z - 12, 24, 24);
+      });
+      minimapCtx.strokeStyle = '#555555';
+      minimapCtx.strokeRect(0, 0, 250, 250);
+    }
+
+    let isAiming = false;
+    document.addEventListener('mousedown', e => { if (e.button === 2) isAiming = true; });
+    document.addEventListener('mouseup', e => { if (e.button === 2) isAiming = false; });
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Gamepad configuration
+    let gamepadConnected = false;
+    const lookSpeed = 0.04;
+
+    window.addEventListener("gamepadconnected", () => gamepadConnected = true);
+    window.addEventListener("gamepaddisconnected", () => gamepadConnected = false);
+
+    function applyGamepadLook(gp) {
+      const rx = gp.axes[2] * lookSpeed;
+      const ry = gp.axes[3] * lookSpeed;
+      controls.getObject().rotation.y -= rx;
+      camera.rotation.x -= ry;
+      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const gp = (gamepadConnected ? navigator.getGamepads()[0] : null);
+
+      if (!isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
+        const dir = new THREE.Vector3();
+        if (keys.KeyW) dir.z -= 1;
+        if (keys.KeyS) dir.z += 1;
+        if (keys.KeyA) dir.x -= 1;
+        if (keys.KeyD) dir.x += 1;
+        if (gp) {
+          dir.x += gp.axes[0];
+          dir.z += gp.axes[1];
+        }
+        dir.normalize().applyQuaternion(camera.quaternion);
+        dir.y = 0;
+        const speed = mods.speed ? 0.5 : 0.25;
+        const next = controls.getObject().position.clone().add(dir.multiplyScalar(speed));
+
+        if ((keys.Space || (gp && gp.buttons[0].pressed)) && !isJumping) {
+          velocityY = mods.superJump ? 0.5 : 0.25;
+          isJumping = true;
+        }
+        velocityY -= 0.015;
+        next.y += velocityY;
+        if (next.y <= 1.6) { next.y = 1.6; velocityY = 0; isJumping = false; }
+        if (!collides(next) || mods.noClip) controls.getObject().position.copy(next);
+
+        if (mods.autoReload && ammo <= 0 && !mods.infAmmo && reloadCooldown === 0) {
+          reloadCooldown = 60;
+          ammo = 0;
+          setTimeout(() => { ammo = maxAmmo; }, 800);
+        }
+
+        for (const id in connections) {
+          const conn = connections[id];
+          if (conn.open) {
+            const p = controls.getObject().position;
+            conn.send({ type: 'position', x: p.x, y: p.y, z: p.z, rotationY: controls.getObject().rotation.y, health, score });
+          }
+        }
+
+        if (gp) applyGamepadLook(gp);
+      }
+
+      bullets.forEach((b, i) => {
+        b.velocityY = b.velocityY || 0;
+        b.velocityY -= 0.006;
+        b.position.add(b.direction.clone().multiplyScalar(0.6));
+        b.position.y += b.velocityY;
+        if (checkBulletHit(b)) {
+          scene.remove(b);
+          bullets.splice(i, 1);
+        } else if (b.position.length() > 200 || b.position.y < 0) {
+          scene.remove(b);
+          bullets.splice(i, 1);
+        }
+      });
+
+      updateESPAndTracers();
+      updateMinimap();
+
+      if (mods.aimbot && isAiming && !mods.silentAim) {
+        const best = Object.values(remotePlayers).reduce((best, rp) => {
+          const d = camera.position.distanceTo(rp.mesh.position);
+          return d < best.dist ? { rp, dist: d } : best;
+        }, { dist: Infinity, rp: null });
+        if (best.rp) {
+          const tgt = best.rp.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
+          const dirQ = tgt.sub(camera.position).normalize();
+          const tq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), dirQ);
+          camera.quaternion.slerp(tq, 0.3);
+          controls.getObject().quaternion.copy(camera.quaternion);
+        }
+      }
+
+      if (mods.triggerbot && !isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
+        const best = Object.values(remotePlayers).reduce((best, rp) => {
+          const d = camera.position.distanceTo(rp.mesh.position);
+          return d < best.dist ? { rp, dist: d } : best;
+        }, { dist: Infinity, rp: null });
+        if (best.rp) {
+          const pos = best.rp.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
+          const vec = pos.project(camera);
+          if (Math.abs(vec.x) < 0.05 && Math.abs(vec.y) < 0.05 && !triggerbotCooldown) {
+            spawnBullet();
+            triggerbotCooldown = mods.rapidFire ? 4 : 15;
+          }
+        }
+      }
+      if (triggerbotCooldown) triggerbotCooldown--;
+
+      if (gp && gp.buttons[7].pressed && shootCooldown === 0 && !isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
+        spawnBullet();
+        shootCooldown = mods.rapidFire ? 4 : shootCooldownTime;
+      }
+      if (shootCooldown) shootCooldown--;
+      if (reloadCooldown) reloadCooldown--;
+
+      renderer.render(scene, camera);
+      healthDisplay.textContent = isDead ? "DEAD" : health;
+      ammoDisplay.textContent = mods.infAmmo ? "∞" : ammo;
+      scoreDisplay.textContent = score;
+      crosshair.style.fontSize = `${crosshairSize}px`;
+    }
+
+    let triggerbotCooldown = 0;
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      espCanvas.width = window.innerWidth;
+      espCanvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html>
