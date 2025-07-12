@@ -1,1007 +1,214 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Multiplayer FPS Game – Nebula Cheat Client</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-    body { margin: 0; overflow: hidden; background: #0a0a0a; }
-    canvas { display: block; }
-    #hud, #crosshair, #status, #playerList, #chat, #chatInput, #modMenu, #killFeed, #minimap {
-      position: absolute;
-      font-family: 'Orbitron', sans-serif;
-      z-index: 10;
-      color: #ffffff;
-    }
-    #hud { top: 20px; left: 20px; font-size: 24px; text-shadow: 0 0 12px #ff4444; background: rgba(0,0,0,0.92); padding: 15px; border-radius: 15px; }
-    #crosshair { top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #ff4444; pointer-events: none; text-shadow: 0 0 8px #000; }
-    #status { top: 20px; right: 20px; font-size: 20px; color: #00ff00; background: rgba(0,0,0,0.92); padding: 15px; border-radius: 15px; }
-    #playerList { top: 90px; right: 20px; font-size: 18px; color: #00ff00; background: rgba(0,0,0,0.92); padding: 15px; border-radius: 15px; max-width: 280px; }
-    #chat { bottom: 20px; left: 20px; width: 500px; max-height: 350px; overflow-y: auto; background: rgba(0,0,0,0.92); padding: 20px; border-radius: 15px; font-size: 18px; }
-    #chatInput { bottom: 390px; left: 20px; width: 500px; display: none; font-size: 18px; padding: 15px; border-radius: 15px; border: none; outline: none; background: rgba(255,255,255,0.95); color: #000; }
-    #modMenu {
-      top: 50%; left: 50%; transform: translate(-50%, -50%); width: 800px; background: linear-gradient(135deg, rgba(10,10,10,0.99), rgba(30,30,30,0.99));
-      padding: 40px; border-radius: 30px; border: 10px solid #ff4444; box-shadow: 0 0 60px rgba(255,0,0,1), inset 0 0 40px rgba(255,0,0,0.8);
-      display: none; z-index: 100; transition: all 0.4s ease; backdrop-filter: blur(12px);
-    }
-    #modMenu h2 { color: #ff4444; margin: 0 0 30px; font-size: 36px; text-align: center; text-shadow: 0 0 12px #000; animation: glow 2s ease-in-out infinite; }
-    @keyframes glow { 0%, 100% { text-shadow: 0 0 12px #ff4444; } 50% { text-shadow: 0 0 20px #ff4444; } }
-    #modMenu .category-tabs { display: flex; justify-content: center; margin-bottom: 30px; }
-    #modMenu .category-tabs button {
-      background: #222; color: #fff; border: none; padding: 15px 30px; border-radius: 12px; cursor: pointer;
-      font-size: 20px; transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease; flex: 1; margin: 0 10px;
-      font-family: 'Orbitron', sans-serif; font-weight: 900;
-    }
-    #modMenu .category-tabs button.active { background: #ff4444; box-shadow: 0 0 25px rgba(255,0,0,1); transform: scale(1.1); }
-    #modMenu .category-tabs button:hover { background: #ff6666; transform: scale(1.12); box-shadow: 0 0 20px rgba(255,0,0,0.9); }
-    #modMenu .category-content { display: none; opacity: 0; transform: translateY(20px); transition: opacity 0.4s ease, transform 0.4s ease; }
-    #modMenu .category-content.active { display: block; opacity: 1; transform: translateY(0); }
-    #modMenu .category { margin: 30px 0; padding: 25px; background: rgba(255,255,255,0.07); border-radius: 15px; box-shadow: 0 0 15px rgba(255,0,0,0.4); }
-    #modMenu .category h3 { color: #ff6666; margin: 0 0 20px; font-size: 24px; }
-    #modMenu label { display: flex; align-items: center; margin: 15px 0; font-size: 20px; color: #fff; cursor: pointer; transition: color 0.3s ease; }
-    #modMenu label:hover { color: #ff9999; }
-    #modMenu input[type="checkbox"] { 
-      appearance: none; width: 30px; height: 30px; background: #222; border: 4px solid #ff4444; border-radius: 10px; margin-right: 20px; 
-      position: relative; transition: background 0.3s ease;
-    }
-    #modMenu input[type="checkbox"]:checked { background: #ff4444; }
-    #modMenu input[type="checkbox"]:checked::after {
-      content: '✔'; color: #000; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 22px;
-    }
-    #modMenu input[type="range"], #modMenu input[type="color"], #modMenu select { width: 100%; accent-color: #ff4444; font-size: 18px; margin-top: 10px; }
-    #modMenu button.save, #modMenu button.reset, #modMenu button.close { 
-      background: #ff4444; color: #fff; border: none; padding: 15px 30px; border-radius: 12px; cursor: pointer; 
-      font-size: 20px; margin: 10px; width: calc(33.33% - 20px); display: inline-block; transition: background 0.3s ease, transform 0.2s ease;
-    }
-    #modMenu button:hover { background: #ff6666; transform: scale(1.05); }
-    #killFeed { top: 20px; right: 310px; width: 450px; max-height: 350px; overflow-y: auto; font-size: 18px; background: rgba(0,0,0,0.92); padding: 20px; border-radius: 15px; }
-    #minimap { bottom: 20px; right: 20px; width: 350px; height: 350px; background: rgba(0,0,0,0.92); border-radius: 20px; overflow: hidden; border: 4px solid #ff4444; }
-    #minimapCanvas { width: 100%; height: 100%; }
-    #espCanvas { position: absolute; top: 0; left: 0; pointer-events: none; }
-    .health-bar { position: absolute; background: #222; border: 2px solid #ff4444; }
-    .health-fill { height: 100%; transition: width 0.2s ease; }
-  </style>
+    <title>Advanced 3D Shooter - Shipment</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="2" fill="white"/><line x1="10" y1="2" x2="10" y2="6" stroke="white" stroke-width="1"/><line x1="10" y1="14" x2="10" y2="18" stroke="white" stroke-width="1"/><line x1="2" y1="10" x2="6" y2="10" stroke="white" stroke-width="1"/><line x1="14" y1="10" x2="18" y2="10" stroke="white" stroke-width="1"/></svg>');
+            pointer-events: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/PointerLockControls.js"></script>
 </head>
 <body>
-  <div id="hud">Health: <span id="health">100</span> | Ammo: <span id="ammo">30</span> | Score: <span id="score">0</span> | Weapon: <span id="weapon">Rifle</span></div>
-  <div id="crosshair">✛</div>
-  <div id="status">Connecting...</div>
-  <div id="playerList">Players:<br/></div>
-  <div id="chat"></div>
-  <input id="chatInput" type="text" placeholder="Type your message and press Enter..." />
-  <div id="modMenu">
-    <h2>Nebula Cheat Client</h2>
-    <div class="category-tabs">
-      <button class="tab-button active" data-tab="combat">Combat</button>
-      <button class="tab-button" data-tab="visual">Visual</button>
-      <button class="tab-button" data-tab="gameplay">Gameplay</button>
-      <button class="tab-button" data-tab="settings">Settings</button>
-    </div>
-    <div class="category-content active" id="combat">
-      <div class="category">
-        <h3>Combat Mods</h3>
-        <label><input type="checkbox" id="aimbotToggle"> Aimbot (Auto-aim)</label>
-        <label><input type="checkbox" id="triggerbotToggle"> Triggerbot (Auto-shoot)</label>
-        <label><input type="checkbox" id="rapidFireToggle"> Rapid Fire</label>
-        <label><input type="checkbox" id="noRecoilToggle"> No Recoil</label>
-        <label><input type="checkbox" id="infAmmoToggle"> Infinite Ammo</label>
-        <label><input type="checkbox" id="oneShotToggle"> One-Shot Kill</label>
-        <label><input type="checkbox" id="autoReloadToggle"> Auto Reload</label>
-        <label><input type="checkbox" id="bulletPenToggle"> Bullet Penetration</label>
-        <label><input type="checkbox" id="silentAimToggle"> Silent Aim</label>
-        <label><input type="checkbox" id="killAuraToggle"> Kill Aura</label>
-        <label><input type="checkbox" id="antiAimToggle"> Anti-Aim</label>
-      </div>
-    </div>
-    <div class="category-content" id="visual">
-      <div class="category">
-        <h3>Visual Mods</h3>
-        <label><input type="checkbox" id="espToggle"> ESP (2D Boxes + Health)</label>
-        <label><input type="checkbox" id="tracersToggle"> Cursor Tracers</label>
-        <label><input type="checkbox" id="fovToggle"> Wide FOV (90°)</label>
-        <label><input type="checkbox" id="nightVisionToggle"> Night Vision</label>
-        <label><input type="checkbox" id="fullbrightToggle"> Fullbright</label>
-        <label><input type="checkbox" id="nameTagsToggle"> Name Tags</label>
-        <label><input type="checkbox" id="chamsToggle"> Chams (Glow Effect)</label>
-        <label><input type="checkbox" id="wallhackToggle"> Wallhack</label>
-        <label><input type="checkbox" id="espTeamToggle"> ESP Team Colors</label>
-      </div>
-    </div>
-    <div class="category-content" id="gameplay">
-      <div class="category">
-        <h3>Gameplay Mods</h3>
-        <label><input type="checkbox" id="speedToggle"> Speed Hack (2x)</label>
-        <label><input type="checkbox" id="godModeToggle"> God Mode</label>
-        <label><input type="checkbox" id="superJumpToggle"> Super Jump</label>
-        <label><input type="checkbox" id="noClipToggle"> No Clip</label>
-        <label><input type="checkbox" id="fastRespawnToggle"> Fast Respawn</label>
-        <label><input type="checkbox" id="autoBunnyHopToggle"> Auto Bunny Hop</label>
-        <label><input type="checkbox" id="autoHealToggle"> Auto Heal</label>
-        <label><input type="checkbox" id="bulletPredictionToggle"> Bullet Prediction</label>
-      </div>
-    </div>
-    <div class="category-content" id="settings">
-      <div class="category">
-        <h3>Settings</h3>
-        <label>Crosshair Size: <input type="range" id="crosshairSize" min="10" max="60" value="24"></label>
-        <label>Crosshair Color: <input type="color" id="crosshairColor" value="#ff4444"></label>
-        <label>ESP Opacity: <input type="range" id="espOpacity" min="0.1" max="1" step="0.1" value="1"></label>
-        <label>Tracer Length: <input type="range" id="tracerLength" min="0.5" max="4" step="0.1" value="1"></label>
-        <label>Aimbot Smoothness: <input type="range" id="aimbotSmoothness" min="0.1" max="1" step="0.1" value="0.3"></label>
-        <label>Sensitivity: <input type="range" id="sensitivity" min="0.5" max="3" step="0.1" value="1"></label>
-        <label>ESP Health Style: <select id="espHealthStyle"><option value="bar">Bar</option><option value="text">Text</option></select></label>
-        <label>Weather: <select id="weather"><option value="clear">Clear</option><option value="fog">Fog</option><option value="rain">Rain</option></select></label>
-        <label>Keybind (Shoot): <input type="text" id="shootKey" value="Mouse0" readonly></label>
-      </div>
-    </div>
-    <button class="save" onclick="saveSettings()">Save Settings</button>
-    <button class="reset" onclick="resetSettings()">Reset Settings</button>
-    <button class="close" onclick="closeMenu()">Close Menu</button>
-  </div>
-  <div id="killFeed"></div>
-  <div id="minimap"><canvas id="minimapCanvas"></canvas></div>
-  <canvas id="espCanvas" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+    <div id="crosshair"></div>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.125.2/examples/js/controls/PointerLockControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
-  <script>
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(renderer.domElement);
+        // Player controls
+        const controls = new THREE.PointerLockControls(camera, document.body);
+        scene.add(controls.getObject());
+        camera.position.set(0, 1.6, 0); // Eye level
 
-    const controls = new THREE.PointerLockControls(camera, document.body);
-    document.body.addEventListener('click', () => controls.lock());
-    scene.add(controls.getObject());
+        // Lock pointer on click
+        document.addEventListener('click', () => controls.lock());
+        controls.addEventListener('lock', () => console.log('Pointer locked'));
+        controls.addEventListener('unlock', () => console.log('Pointer unlocked'));
 
-    // Frustum culling
-    const frustum = new THREE.Frustum();
-    const cameraViewProjectionMatrix = new THREE.Matrix4();
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
 
-    // Game state
-    let health = 100, ammo = 30, score = 0, isDead = false, isJumping = false, velocityY = 0, sprinting = false;
-    let currentWeapon = 'rifle';
-    const weapons = {
-      rifle: { ammo: 30, maxAmmo: 30, damage: 20, shootCooldown: 10, recoil: 0.06 },
-      sniper: { ammo: 5, maxAmmo: 5, damage: 50, shootCooldown: 30, recoil: 0.1 }
-    };
-    let shootCooldown = 0, reloadCooldown = 0, recoilAngle = 0;
-    const healthDisplay = document.getElementById("health");
-    const ammoDisplay = document.getElementById("ammo");
-    const scoreDisplay = document.getElementById("score");
-    const weaponDisplay = document.getElementById("weapon");
-    const statusDisplay = document.getElementById("status");
-    const playerListDisplay = document.getElementById("playerList");
-    const chatDisplay = document.getElementById("chat");
-    const chatInput = document.getElementById("chatInput");
-    const killFeed = document.getElementById("killFeed");
-    const minimapCanvas = document.getElementById("minimapCanvas");
-    const minimapCtx = minimapCanvas.getContext("2d");
-    const espCanvas = document.getElementById("espCanvas");
-    const espCtx = espCanvas.getContext("2d");
-    const crosshair = document.getElementById("crosshair");
-    const keys = {};
-    let lastEspState = null;
+        // Ground (Shipment floor)
+        const groundGeometry = new THREE.PlaneGeometry(44, 32); // Shipment dimensions (scaled down)
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.8 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
 
-    // Mod menu settings
-    let crosshairSize = 24, crosshairColor = '#ff4444', espOpacity = 1, tracerLength = 1, aimbotSmoothness = 0.3, sensitivity = 1, espHealthStyle = 'bar', weather = 'clear';
-    let shootKey = 'Mouse0';
-    document.getElementById("crosshairSize").addEventListener('input', e => {
-      crosshairSize = parseFloat(e.target.value);
-      crosshair.style.fontSize = `${crosshairSize}px`;
-    });
-    document.getElementById("crosshairColor").addEventListener('input', e => {
-      crosshairColor = e.target.value;
-      crosshair.style.color = crosshairColor;
-    });
-    document.getElementById("espOpacity").addEventListener('input', e => {
-      espOpacity = parseFloat(e.target.value);
-    });
-    document.getElementById("tracerLength").addEventListener('input', e => {
-      tracerLength = parseFloat(e.target.value);
-    });
-    document.getElementById("aimbotSmoothness").addEventListener('input', e => {
-      aimbotSmoothness = parseFloat(e.target.value);
-    });
-    document.getElementById("sensitivity").addEventListener('input', e => {
-      sensitivity = parseFloat(e.target.value);
-    });
-    document.getElementById("espHealthStyle").addEventListener('change', e => {
-      espHealthStyle = e.target.value;
-    });
-    document.getElementById("weather").addEventListener('change', e => {
-      weather = e.target.value;
-      updateWeather();
-    });
-    document.getElementById("shootKey").addEventListener('click', e => {
-      e.target.value = 'Press a key...';
-      document.addEventListener('keydown', function setKey(e) {
-        shootKey = e.code;
-        e.target.value = shootKey;
-        document.removeEventListener('keydown', setKey);
-      }, { once: true });
-    });
-
-    function saveSettings() {
-      try {
-        const settings = {
-          mods, crosshairSize, crosshairColor, espOpacity, tracerLength, aimbotSmoothness, sensitivity, espHealthStyle, weather, shootKey
-        };
-        localStorage.setItem('cheatSettings', JSON.stringify(settings));
-        alert('Settings saved successfully!');
-      } catch (e) {
-        console.error('Error saving settings:', e);
-        alert('Failed to save settings.');
-      }
-    }
-
-    function resetSettings() {
-      mods = {
-        tracers: false, aimbot: false, esp: false, triggerbot: false, rapidFire: false, noRecoil: false,
-        infAmmo: false, fov: false, speed: false, godMode: false, oneShot: false, autoReload: false,
-        nightVision: false, fullbright: false, noClip: false, bulletPen: false, fastRespawn: false,
-        nameTags: false, silentAim: false, autoBunnyHop: false, chams: false, wallhack: false,
-        autoHeal: false, killAura: false, antiAim: false, espTeam: false, bulletPrediction: false
-      };
-      crosshairSize = 24; crosshairColor = '#ff4444'; espOpacity = 1; tracerLength = 1;
-      aimbotSmoothness = 0.3; sensitivity = 1; espHealthStyle = 'bar'; weather = 'clear'; shootKey = 'Mouse0';
-      crosshair.style.fontSize = `${crosshairSize}px`;
-      crosshair.style.color = crosshairColor;
-      document.getElementById("crosshairSize").value = crosshairSize;
-      document.getElementById("crosshairColor").value = crosshairColor;
-      document.getElementById("espOpacity").value = espOpacity;
-      document.getElementById("tracerLength").value = tracerLength;
-      document.getElementById("aimbotSmoothness").value = aimbotSmoothness;
-      document.getElementById("sensitivity").value = sensitivity;
-      document.getElementById("espHealthStyle").value = espHealthStyle;
-      document.getElementById("weather").value = weather;
-      document.getElementById("shootKey").value = shootKey;
-      Object.keys(mods).forEach(name => {
-        document.getElementById(name + "Toggle").checked = mods[name];
-      });
-      updateWeather();
-      saveSettings();
-    }
-
-    function loadSettings() {
-      try {
-        const saved = localStorage.getItem('cheatSettings');
-        if (saved) {
-          const settings = JSON.parse(saved);
-          Object.assign(mods, settings.mods);
-          crosshairSize = settings.crosshairSize || 24;
-          crosshairColor = settings.crosshairColor || '#ff4444';
-          espOpacity = settings.espOpacity || 1;
-          tracerLength = settings.tracerLength || 1;
-          aimbotSmoothness = settings.aimbotSmoothness || 0.3;
-          sensitivity = settings.sensitivity || 1;
-          espHealthStyle = settings.espHealthStyle || 'bar';
-          weather = settings.weather || 'clear';
-          shootKey = settings.shootKey || 'Mouse0';
-          crosshair.style.fontSize = `${crosshairSize}px`;
-          crosshair.style.color = crosshairColor;
-          document.getElementById("crosshairSize").value = crosshairSize;
-          document.getElementById("crosshairColor").value = crosshairColor;
-          document.getElementById("espOpacity").value = espOpacity;
-          document.getElementById("tracerLength").value = tracerLength;
-          document.getElementById("aimbotSmoothness").value = aimbotSmoothness;
-          document.getElementById("sensitivity").value = sensitivity;
-          document.getElementById("espHealthStyle").value = espHealthStyle;
-          document.getElementById("weather").value = weather;
-          document.getElementById("shootKey").value = shootKey;
-          Object.keys(mods).forEach(name => {
-            document.getElementById(name + "Toggle").checked = mods[name];
-          });
-          updateWeather();
-        }
-      } catch (e) {
-        console.error('Error loading settings:', e);
-      }
-    }
-
-    function closeMenu() {
-      document.getElementById('modMenu').style.display = 'none';
-      controls.lock();
-    }
-
-    function updateWeather() {
-      scene.fog = null;
-      if (weather === 'fog') {
-        scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
-      } else if (weather === 'rain') {
-        scene.fog = new THREE.Fog(0x87ceeb, 5, 30);
-        // Simulate rain with particles
-        const rainGeo = new THREE.BufferGeometry();
-        const rainCount = 1000;
-        const posArray = new Float32Array(rainCount * 3);
-        for (let i = 0; i < rainCount * 3; i += 3) {
-          posArray[i] = (Math.random() - 0.5) * 100;
-          posArray[i + 1] = Math.random() * 50;
-          posArray[i + 2] = (Math.random() - 0.5) * 100;
-        }
-        rainGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const rainMat = new THREE.PointsMaterial({ color: 0xaaaaaa, size: 0.1, transparent: true });
-        const rain = new THREE.Points(rainGeo, rainMat);
-        rain.name = 'rain';
-        scene.add(rain);
-      } else {
-        const rain = scene.getObjectByName('rain');
-        if (rain) scene.remove(rain);
-      }
-    }
-
-    // Category tab switching
-    const tabs = document.querySelectorAll('.tab-button');
-    const contents = document.querySelectorAll('.category-content');
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        contents.forEach(c => c.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.tab).classList.add('active');
-      });
-    });
-
-    // Control fixes
-    document.addEventListener('keydown', e => {
-      keys[e.code] = true;
-      if (e.key === '/' && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
-        e.preventDefault();
-        chatInput.style.display = "block";
-        chatInput.focus();
-        controls.unlock();
-      } else if (e.key === 'Escape') {
-        chatInput.value = "";
-        chatInput.style.display = "none";
-        modMenu.style.display = "none";
-        controls.lock();
-      } else if (e.key === 'r' && !isDead && ammo < weapons[currentWeapon].maxAmmo && reloadCooldown === 0 && !mods.infAmmo && !mods.autoReload) {
-        reloadCooldown = 60;
-        ammo = 0;
-        setTimeout(() => { ammo = weapons[currentWeapon].maxAmmo; }, 600);
-      } else if (e.key === ';') {
-        modMenu.style.display = modMenu.style.display === "none" ? "block" : "none";
-        if (modMenu.style.display === "block") controls.unlock();
-        else controls.lock();
-      } else if (e.key === 'Shift') {
-        sprinting = true;
-      } else if (e.key === '1') {
-        currentWeapon = 'rifle';
-        ammo = Math.min(ammo, weapons.rifle.maxAmmo);
-      } else if (e.key === '2') {
-        currentWeapon = 'sniper';
-        ammo = Math.min(ammo, weapons.sniper.maxAmmo);
-      }
-    });
-    document.addEventListener('keyup', e => {
-      keys[e.code] = false;
-      if (mods.autoBunnyHop && e.code === 'Space' && !isDead) {
-        setTimeout(() => { if (!isJumping) { velocityY = mods.superJump ? 0.7 : 0.35; isJumping = true; } }, 5);
-      }
-      if (e.key === 'Shift') sprinting = false;
-    });
-
-    chatInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        const msg = chatInput.value.trim();
-        if (msg) sendChatMessage(msg);
-        chatInput.value = '';
-        chatInput.style.display = "none";
-        controls.lock();
-      }
-      e.stopPropagation();
-    });
-
-    // Enhanced lighting
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.7);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(10, 20, 10);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    scene.add(dirLight);
-
-    // Realistic floor with normal map
-    const textureLoader = new THREE.TextureLoader();
-    const floorTexture = textureLoader.load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
-    const floorNormal = textureLoader.load('https://threejs.org/examples/textures/hardwood2_normal.jpg');
-    floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-    floorNormal.wrapS = floorNormal.wrapT = THREE.RepeatWrapping;
-    floorTexture.repeat.set(25, 25);
-    floorNormal.repeat.set(25, 25);
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshStandardMaterial({ map: floorTexture, normalMap: floorNormal, roughness: 0.5, metalness: 0.3 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // Obstacles with LOD
-    const colors = [0x0055ff, 0xff3333, 0x33cc33, 0xffff33];
-    const obstacles = [];
-    const wallTexture = textureLoader.load('https://threejs.org/examples/textures/brick_diffuse.jpg');
-    const wallNormal = textureLoader.load('https://threejs.org/examples/textures/brick_normal.jpg');
-    for (let i = 0; i < 25; i++) {
-      const geometryLow = new THREE.BoxGeometry(5, 6, 2, 4, 4, 4);
-      const geometryHigh = new THREE.BoxGeometry(5, 6, 2, 12, 12, 12);
-      const material = new THREE.MeshStandardMaterial({ map: wallTexture, normalMap: wallNormal, color: colors[i % colors.length], roughness: 0.6 });
-      const box = new THREE.Mesh(geometryHigh, material);
-      box.position.set((Math.random() - 0.5) * 90, 3, (Math.random() - 0.5) * 90);
-      box.castShadow = true;
-      box.receiveShadow = true;
-      box.lod = { high: geometryHigh, low: geometryLow };
-      scene.add(box);
-      obstacles.push(box);
-    }
-
-    // Map boundaries
-    const boundaryMaterial = new THREE.MeshStandardMaterial({ map: wallTexture, normalMap: wallNormal, roughness: 0.6, metalness: 0.4 });
-    const boundaries = [
-      new THREE.Mesh(new THREE.BoxGeometry(200, 20, 1, 4, 4, 4), boundaryMaterial),
-      new THREE.Mesh(new THREE.BoxGeometry(200, 20, 1, 4, 4, 4), boundaryMaterial),
-      new THREE.Mesh(new THREE.BoxGeometry(1, 20, 200, 4, 4, 4), boundaryMaterial),
-      new THREE.Mesh(new THREE.BoxGeometry(1, 20, 200, 4, 4, 4), boundaryMaterial)
-    ];
-    boundaries[0].position.set(0, 10, -100);
-    boundaries[1].position.set(0, 10, 100);
-    boundaries[2].position.set(100, 10, 0);
-    boundaries[3].position.set(-100, 10, 0);
-    boundaries.forEach(b => { b.receiveShadow = true; b.castShadow = true; scene.add(b); });
-
-    function collides(pos) {
-      if (Math.abs(pos.x) > 98 || Math.abs(pos.z) > 98) return true;
-      return obstacles.some(o =>
-        Math.abs(pos.x - o.position.x) < 3 &&
-        Math.abs(pos.z - o.position.z) < 3
-      );
-    }
-
-    camera.position.set(0, 2, 10);
-    controls.getObject().position.set(0, 1.6, 10);
-
-    // Player networking
-    const ROOM_ID = "shared-room";
-    let peer, isHost = false;
-    const connections = {}, remotePlayers = {};
-    let lastNetworkUpdate = 0;
-
-    function updatePlayerList() {
-      let html = "Players:<br/>You (" + score + ")<br/>";
-      for (const id in remotePlayers) html += id + " (" + remotePlayers[id].health + "HP, " + (remotePlayers[id].score || 0) + ")<br/>";
-      playerListDisplay.innerHTML = html;
-    }
-
-    function createRemoteMesh(team = 0) {
-      const group = new THREE.Group();
-      const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 2, 16),
-        new THREE.MeshStandardMaterial({ color: team === 1 ? 0xff0000 : 0x0000ff, roughness: 0.5, metalness: 0.2 })
-      );
-      body.position.y = 1;
-      const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.5, metalness: 0.2 })
-      );
-      head.position.set(0, 2, 0);
-      group.add(body, head);
-      group.castShadow = true;
-      return group;
-    }
-
-    function addChatMessage(sender, message) {
-      const d = document.createElement('div');
-      d.textContent = sender + ": " + message;
-      chatDisplay.appendChild(d);
-      chatDisplay.scrollTop = chatDisplay.scrollHeight;
-    }
-
-    function addKillFeed(killer, victim, streak = 0) {
-      const d = document.createElement('div');
-      d.textContent = `${killer} eliminated ${victim}${streak >= 3 ? ` [${streak} Streak]` : ''}`;
-      d.style.color = streak >= 5 ? '#ffaa00' : '#ff4444';
-      killFeed.insertBefore(d, killFeed.firstChild);
-      setTimeout(() => d.remove(), 6000);
-    }
-
-    function setupConnection(conn) {
-      connections[conn.peer] = conn;
-      conn.on('data', data => {
-        if (data.type === 'position') {
-          if (!remotePlayers[conn.peer]) {
-            const mesh = createRemoteMesh(Math.random() > 0.5 ? 1 : 0);
+        // Containers (mimicking Shipment's layout)
+        const containerGeometry = new THREE.BoxGeometry(12, 2.5, 2.5);
+        const containerMaterial = new THREE.MeshStandardMaterial({ color: 0x4682b4, roughness: 0.7, metalness: 0.3 });
+        const containers = [
+            // Outer perimeter
+            { pos: [0, 1.25, 15], rot: [0, 0, 0] }, // North
+            { pos: [0, 1.25, -15], rot: [0, 0, 0] }, // South
+            { pos: [20, 1.25, 0], rot: [0, Math.PI / 2, 0] }, // East
+            { pos: [-20, 1.25, 0], rot: [0, Math.PI / 2, 0] }, // West
+            // Central containers
+            { pos: [5, 1.25, 0], rot: [0, 0, 0] }, // Center 1
+            { pos: [-5, 1.25, 0], rot: [0, 0, 0] }, // Center 2
+            { pos: [0, 1.25, 5], rot: [0, Math.PI / 2, 0] } // Center 3
+        ];
+        const containerMeshes = containers.map(c => {
+            const mesh = new THREE.Mesh(containerGeometry, containerMaterial);
+            mesh.position.set(...c.pos);
+            mesh.rotation.set(...c.rot);
             scene.add(mesh);
-            remotePlayers[conn.peer] = { mesh, health: 100, score: 0, streak: 0, team: mesh.children[0].material.color.getHex() === 0xff0000 ? 1 : 0 };
-            updatePlayerList();
-          }
-          remotePlayers[conn.peer].mesh.position.set(data.x, 1, data.z);
-          remotePlayers[conn.peer].mesh.rotation.y = data.rotationY || 0;
-          remotePlayers[conn.peer].health = data.health || 100;
-          remotePlayers[conn.peer].score = data.score || 0;
-          updatePlayerList();
-        } else if (data.type === 'hit' && !isDead && !mods.godMode) {
-          health -= mods.oneShot ? 100 : weapons[currentWeapon].damage;
-          if (health <= 0) {
-            dieAndRespawn();
-            addKillFeed(conn.peer, "You", (remotePlayers[conn.peer].streak || 0) + 1);
-            for (const id in connections) connections[id].send({ type: 'kill', killer: conn.peer, victim: "You" });
-            if (connections[conn.peer]) {
-              remotePlayers[conn.peer].streak = (remotePlayers[conn.peer].streak || 0) + 1;
-              connections[conn.peer].send({ type: 'score', score: (remotePlayers[conn.peer].score || 0) + 1 });
+            return mesh;
+        });
+
+        // Bots
+        const botGeometry = new THREE.BoxGeometry(0.8, 1.8, 0.8);
+        const botMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.9 });
+        const bots = [];
+        const botSpawns = [
+            [15, 0.9, 10], [-15, 0.9, -10], [10, 0.9, -12], [-10, 0.9, 12]
+        ];
+        for (let i = 0; i < 4; i++) {
+            const bot = new THREE.Mesh(botGeometry, botMaterial);
+            bot.position.set(...botSpawns[i]);
+            bot.health = 100;
+            bot.speed = 0.05 + Math.random() * 0.03;
+            scene.add(bot);
+            bots.push(bot);
+        }
+
+        // Gun model
+        const gunGeometry = new THREE.BoxGeometry(0.2, 0.1, 0.5);
+        const gunMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.8 });
+        const gun = new THREE.Mesh(gunGeometry, gunMaterial);
+        gun.position.set(0.3, -0.3, -0.5);
+        camera.add(gun);
+        scene.add(camera);
+
+        // Bullets
+        const bulletGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+        const bulletMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0xffff00 });
+        const bullets = [];
+
+        // Keyboard controls
+        const keys = {};
+        document.addEventListener('keydown', e => keys[e.code] = true);
+        document.addEventListener('keyup', e => keys[e.code] = false);
+
+        // Shooting
+        let lastShot = 0;
+        const fireRate = 0.2; // Seconds between shots
+        document.addEventListener('mousedown', () => {
+            if (controls.isLocked && performance.now() - lastShot > fireRate * 1000) {
+                const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+                bullet.position.copy(camera.position);
+                const direction = new THREE.Vector3();
+                camera.getWorldDirection(direction);
+                bullet.velocity = direction.clone().multiplyScalar(50);
+                scene.add(bullet);
+                bullets.push(bullet);
+                lastShot = performance.now();
             }
-          }
-        } else if (data.type === 'chat') {
-          addChatMessage(conn.peer, data.message);
-        } else if (data.type === 'kill') {
-          addKillFeed(data.killer, data.victim, remotePlayers[data.killer]?.streak || 0);
-        } else if (data.type === 'score') {
-          remotePlayers[conn.peer].score = data.score;
-          updatePlayerList();
-        }
-      });
-      conn.on('close', () => {
-        if (remotePlayers[conn.peer]) {
-          scene.remove(remotePlayers[conn.peer].mesh);
-          delete remotePlayers[conn.peer];
-          updatePlayerList();
-        }
-        delete connections[conn.peer];
-      });
-    }
+        });
 
-    function startPeerAsHost() {
-      peer = new Peer(ROOM_ID, { debug: 1 });
-      peer.on('open', () => { statusDisplay.textContent = "Connected as Host"; isHost = true; loadSettings(); });
-      peer.on('connection', setupConnection);
-      peer.on('error', err => { if (err.type === 'unavailable-id') startPeerAsClient(); });
-    }
+        // Movement and collision
+        let moveSpeed = 0.1;
+        const sprintSpeed = 0.2;
+        const playerBox = new THREE.Box3();
+        const containerBoxes = containerMeshes.map(c => new THREE.Box3().setFromObject(c));
+        const botBoxes = bots.map(bot => new THREE.Box3().setFromObject(bot));
 
-    function startPeerAsClient() {
-      peer = new Peer({ debug: 1 });
-      peer.on('open', () => {
-        statusDisplay.textContent = "Connected as Client";
-        const conn = peer.connect(ROOM_ID);
-        conn.on('open', () => { setupConnection(conn); loadSettings(); });
-      });
-    }
+        function update() {
+            // Sprinting
+            moveSpeed = keys['ShiftLeft'] ? sprintSpeed : 0.1;
 
-    startPeerAsHost();
+            // Player movement
+            const direction = new THREE.Vector3();
+            if (keys['KeyW']) direction.z -= 1;
+            if (keys['KeyS']) direction.z += 1;
+            if (keys['KeyA']) direction.x -= 1;
+            if (keys['KeyD']) direction.x += 1;
+            direction.normalize().multiplyScalar(moveSpeed);
+            const newPosition = camera.position.clone().add(direction);
 
-    function sendChatMessage(message) {
-      addChatMessage("You", message);
-      for (const id in connections) {
-        if (connections[id].open)
-          connections[id].send({ type: 'chat', message });
-      }
-    }
+            // Collision detection with containers
+            playerBox.setFromCenterAndSize(newPosition, new THREE.Vector3(0.8, 1.8, 0.8));
+            let canMove = true;
+            for (let containerBox of containerBoxes) {
+                if (playerBox.intersectsBox(containerBox)) {
+                    canMove = false;
+                    break;
+                }
+            }
+            if (canMove) controls.getObject().position.copy(newPosition);
 
-    const bullets = [];
-    function spawnBullet() {
-      if (ammo <= 0 && !mods.infAmmo || reloadCooldown > 0 || bullets.length > 40) return;
-      if (!mods.infAmmo) ammo--;
-      const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.1, 8, 8),
-        new THREE.MeshBasicMaterial({ color: mods.noRecoil ? 0x00ff00 : 0xff0000 })
-      );
-      bullet.position.copy(camera.position);
-      bullet.direction = camera.getWorldDirection(new THREE.Vector3()).clone();
-      if (!mods.noRecoil && !mods.silentAim) {
-        bullet.direction.x += (Math.random() - 0.5) * weapons[currentWeapon].recoil;
-        bullet.direction.y += Math.sin(recoilAngle) * weapons[currentWeapon].recoil + (Math.random() - 0.5) * 0.02;
-      }
-      bullet.velocityY = 0;
-      bullet.age = 0;
-      bullet.prediction = mods.bulletPrediction ? 0.1 : 0;
-      scene.add(bullet);
-      bullets.push(bullet);
-      recoilAngle += weapons[currentWeapon].recoil * 2;
-      if (mods.silentAim) {
-        const best = Object.values(remotePlayers).reduce((best, rp) => {
-          const d = camera.position.distanceTo(rp.mesh.position);
-          return d < best.dist && (!mods.espTeam || rp.team !== (remotePlayers[peer.id]?.team || 0)) ? { rp, dist: d } : best;
-        }, { dist: Infinity, rp: null });
-        if (best.rp) {
-          let targetPos = best.rp.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
-          if (mods.bulletPrediction) {
-            const velocity = best.rp.mesh.position.clone().sub(best.rp.lastPosition || targetPos).multiplyScalar(10);
-            targetPos.add(velocity.multiplyScalar(bullet.prediction));
-          }
-          bullet.direction = targetPos.sub(bullet.position).normalize();
-        }
-      }
-      // Particle effect
-      const particleGeo = new THREE.BufferGeometry();
-      const particleCount = 10;
-      const posArray = new Float32Array(particleCount * 3);
-      for (let i = 0; i < particleCount * 3; i++) posArray[i] = (Math.random() - 0.5) * 0.3;
-      particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-      const particleMat = new THREE.PointsMaterial({ color: 0xffff00, size: 0.15, transparent: true });
-      const particles = new THREE.Points(particleGeo, particleMat);
-      particles.position.copy(bullet.position);
-      scene.add(particles);
-      setTimeout(() => scene.remove(particles), 300);
-    }
-
-    function checkBulletHit(b) {
-      if (mods.killAura) {
-        for (const id in remotePlayers) {
-          const p = remotePlayers[id];
-          if (mods.espTeam && p.team === (remotePlayers[peer.id]?.team || 0)) continue;
-          if (camera.position.distanceTo(p.mesh.position) < 5) {
-            connections[id]?.send({ type: 'hit' });
-            return true;
-          }
-        }
-      }
-      for (const id in remotePlayers) {
-        const p = remotePlayers[id];
-        if (mods.espTeam && p.team === (remotePlayers[peer.id]?.team || 0)) continue;
-        if (mods.bulletPen || b.position.distanceTo(p.mesh.position) < 1) {
-          connections[id]?.send({ type: 'hit' });
-          return true;
-        }
-      }
-      return false;
-    }
-
-    function dieAndRespawn() {
-      if (mods.godMode) return;
-      isDead = true;
-      health = 0;
-      healthDisplay.textContent = "DEAD";
-      controls.getObject().position.set(999, 999, 999);
-      const respawnTime = mods.fastRespawn ? 600 : 2000;
-      setTimeout(() => {
-        isDead = false;
-        health = 100;
-        ammo = weapons[currentWeapon].maxAmmo;
-        controls.getObject().position.set(Math.random() * 20 - 10, 1.6, Math.random() * 20 - 10);
-      }, respawnTime);
-    }
-
-    // Mod menu
-    let mods = {
-      tracers: false, aimbot: false, esp: false, triggerbot: false, rapidFire: false, noRecoil: false,
-      infAmmo: false, fov: false, speed: false, godMode: false, oneShot: false, autoReload: false,
-      nightVision: false, fullbright: false, noClip: false, bulletPen: false, fastRespawn: false,
-      nameTags: false, silentAim: false, autoBunnyHop: false, chams: false, wallhack: false,
-      autoHeal: false, killAura: false, antiAim: false, espTeam: false, bulletPrediction: false
-    };
-    const modMenu = document.getElementById("modMenu");
-    Object.keys(mods).forEach(name => {
-      const el = document.getElementById(name + "Toggle");
-      el.onchange = e => {
-        mods[name] = e.target.checked;
-        if (name === "fov") {
-          camera.fov = mods.fov ? 90 : 75;
-          camera.updateProjectionMatrix();
-        }
-        if (name === "nightVision") {
-          ambientLight.intensity = mods.nightVision ? 1.2 : 0.7;
-        }
-        if (name === "fullbright") {
-          dirLight.intensity = mods.fullbright ? 2.2 : 1.0;
-          ambientLight.intensity = mods.fullbright ? 1.7 : 0.7;
-        }
-        if (name === "chams") {
-          Object.values(remotePlayers).forEach(p => {
-            p.mesh.traverse(child => {
-              if (child.isMesh) {
-                child.material.emissive.set(mods.chams ? (p.team === 1 ? 0xff4444 : 0x4444ff) : 0x000000);
-                child.material.emissiveIntensity = mods.chams ? 0.8 : 0;
-              }
+            // Bot AI with pathfinding avoidance
+            bots.forEach(bot => {
+                if (bot.health <= 0) return;
+                const directionToPlayer = camera.position.clone().sub(bot.position).normalize();
+                const moveVector = directionToPlayer.clone().multiplyScalar(bot.speed);
+                const newBotPos = bot.position.clone().add(moveVector);
+                const botBox = new THREE.Box3().setFromCenterAndSize(newBotPos, new THREE.Vector3(0.8, 1.8, 0.8));
+                let botCanMove = true;
+                for (let containerBox of containerBoxes) {
+                    if (botBox.intersectsBox(containerBox)) {
+                        botCanMove = false;
+                        break;
+                    }
+                }
+                if (botCanMove) bot.position.copy(newBotPos);
+                bot.lookAt(camera.position);
             });
-          });
-        }
-        if (name === "wallhack") {
-          obstacles.forEach(o => { o.material.transparent = mods.wallhack; o.material.opacity = mods.wallhack ? 0.2 : 1; });
-          boundaries.forEach(b => { b.material.transparent = mods.wallhack; b.material.opacity = mods.wallhack ? 0.2 : 1; });
-        }
-      };
-    });
 
-    // Visual helpers
-    const tracerLines = [];
-    function clearHelpers() {
-      tracerLines.forEach(l => scene.remove(l)); tracerLines.length = 0;
-      espCtx.clearRect(0, 0, espCanvas.width, espCanvas.height);
-    }
+            // Bullet movement and collision
+            bullets.forEach((bullet, index) => {
+                bullet.position.add(bullet.velocity.clone().multiplyScalar(1/60));
+                const bulletBox = new THREE.Box3().setFromObject(bullet);
+                bots.forEach(bot => {
+                    if (bot.health <= 0) return;
+                    const botBox = new THREE.Box3().setFromObject(bot);
+                    if (bulletBox.intersectsBox(botBox)) {
+                        bot.health -= 20;
+                        scene.remove(bullet);
+                        bullets.splice(index, 1);
+                        if (bot.health <= 0) {
+                            bot.material.color.set(0x555555);
+                        }
+                    }
+                });
+                if (bullet.position.length() > 100) {
+                    scene.remove(bullet);
+                    bullets.splice(index, 1);
+                }
+            });
 
-    function updateESPAndTracers() {
-      cameraViewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-      frustum.setFromProjectionMatrix(cameraViewProjectionMatrix);
-      const currentEspState = JSON.stringify(Object.values(remotePlayers).map(p => ({
-        x: p.mesh.position.x, z: p.mesh.position.z, health: p.health, team: p.team
-      })));
-      if (currentEspState === lastEspState && !mods.tracers && !mods.esp && !mods.nameTags) return;
-      lastEspState = currentEspState;
-      clearHelpers();
-      espCanvas.width = window.innerWidth;
-      espCanvas.height = window.innerHeight;
-      espCtx.font = '18px Orbitron';
-      espCtx.lineWidth = 5;
-      const eye = camera.position.clone();
-      for (const id in remotePlayers) {
-        const enemy = remotePlayers[id];
-        const pos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
-        if (!frustum.containsPoint(pos)) continue;
-        const screenPos = pos.project(camera);
-        const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
-        const dist = camera.position.distanceTo(enemy.mesh.position);
-        const size = Math.max(30, 2000 / dist);
-        const healthPercent = enemy.health / 100;
-        const healthColor = `rgb(${255 * (1 - healthPercent)}, ${255 * healthPercent}, 0)`;
-        if (mods.esp) {
-          espCtx.strokeStyle = mods.espTeam && enemy.team === (remotePlayers[peer.id]?.team || 0) ? `rgba(0, 0, 255, ${espOpacity})` : `rgba(0, 255, 0, ${espOpacity})`;
-          espCtx.strokeRect(x - size / 2, y - size * 1.5, size, size * 2);
-          if (espHealthStyle === 'bar') {
-            espCtx.fillStyle = healthColor;
-            espCtx.fillRect(x + size / 2 + 10, y - size * 1.5, 15, size * 2 * healthPercent);
-            espCtx.strokeStyle = `rgba(255, 0, 0, ${espOpacity})`;
-            espCtx.strokeRect(x + size / 2 + 10, y - size * 1.5, 15, size * 2);
-          } else {
-            espCtx.fillStyle = `rgba(255, 255, 255, ${espOpacity})`;
-            espCtx.fillText(`${id} [${enemy.health}HP]`, x - size / 2, y - size * 1.8);
-          }
-        }
-        if (mods.nameTags && !mods.esp) {
-          espCtx.fillStyle = `rgba(255, 255, 255, ${espOpacity})`;
-          espCtx.fillText(`${id} [${enemy.health}HP]`, x - 20, y - size * 1.8);
-        }
-        if (mods.tracers && !isDead) {
-          const target = enemy.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
-          const start = eye.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(tracerLength));
-          const lineGeo = new THREE.BufferGeometry().setFromPoints([start, target]);
-          const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: !mods.wallhack });
-          const line = new THREE.Line(lineGeo, lineMat);
-          line.renderOrder = 999;
-          tracerLines.push(line);
-          scene.add(line);
-        }
-      }
-    }
-
-    // Minimap
-    function updateMinimap() {
-      minimapCanvas.width = 350;
-      minimapCanvas.height = 350;
-      minimapCtx.fillStyle = 'rgba(0,0,0,0.95)';
-      minimapCtx.fillRect(0, 0, 350, 350);
-      minimapCtx.fillStyle = '#00ff00';
-      const px = (controls.getObject().position.x + 100) / 200 * 350;
-      const pz = (controls.getObject().position.z + 100) / 200 * 350;
-      minimapCtx.beginPath();
-      minimapCtx.arc(px, pz, 10, 0, Math.PI * 2);
-      minimapCtx.fill();
-      minimapCtx.fillStyle = '#ff0000';
-      for (const id in remotePlayers) {
-        const p = remotePlayers[id].mesh.position;
-        const x = (p.x + 100) / 200 * 350;
-        const z = (p.z + 100) / 200 * 350;
-        minimapCtx.fillStyle = mods.espTeam && remotePlayers[id].team === (remotePlayers[peer.id]?.team || 0) ? '#0000ff' : '#ff0000';
-        minimapCtx.beginPath();
-        minimapCtx.arc(x, z, 10, 0, Math.PI * 2);
-        minimapCtx.fill();
-      }
-      minimapCtx.strokeStyle = '#ffffff';
-      minimapCtx.lineWidth = 5;
-      obstacles.forEach(o => {
-        if (!frustum.containsPoint(o.position)) return;
-        const x = (o.position.x + 100) / 200 * 350;
-        const z = (o.position.z + 100) / 200 * 350;
-        minimapCtx.strokeRect(x - 20, z - 20, 40, 40);
-      });
-      minimapCtx.strokeStyle = '#555555';
-      minimapCtx.strokeRect(0, 0, 350, 350);
-    }
-
-    let isAiming = false;
-    document.addEventListener('mousedown', e => {
-      if (e.button === 2) isAiming = true;
-      if (e.button === 0 && shootKey === 'Mouse0' && !isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") spawnBullet();
-    });
-    document.addEventListener('mouseup', e => { if (e.button === 2) isAiming = false; });
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('mousemove', e => {
-      if (controls.isLocked) {
-        let deltaX = e.movementX * 0.002 * sensitivity;
-        let deltaY = e.movementY * 0.002 * sensitivity;
-        if (mods.antiAim && !isAiming) {
-          deltaX += Math.sin(Date.now() * 0.01) * 0.05;
-          deltaY += Math.cos(Date.now() * 0.01) * 0.03;
-        }
-        controls.getObject().rotation.y -= deltaX;
-        camera.rotation.x -= deltaY;
-        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-      }
-    });
-    document.addEventListener('keydown', e => {
-      if (e.code === shootKey && shootKey !== 'Mouse0' && !isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") spawnBullet();
-    });
-
-    // Gamepad configuration
-    let gamepadConnected = false;
-    const lookSpeed = 0.025;
-
-    window.addEventListener("gamepadconnected", () => gamepadConnected = true);
-    window.addEventListener("gamepaddisconnected", () => gamepadConnected = false);
-
-    function applyGamepadLook(gp) {
-      let rx = gp.axes[2] * lookSpeed * sensitivity;
-      let ry = gp.axes[3] * lookSpeed * sensitivity;
-      if (mods.antiAim && !isAiming) {
-        rx += Math.sin(Date.now() * 0.01) * 0.05;
-        ry += Math.cos(Date.now() * 0.01) * 0.03;
-      }
-      controls.getObject().rotation.y -= rx;
-      camera.rotation.x -= ry;
-      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-    }
-
-    function animate(time) {
-      requestAnimationFrame(animate);
-
-      const gp = (gamepadConnected ? navigator.getGamepads()[0] : null);
-
-      // LOD and shadow update
-      obstacles.forEach(o => {
-        const dist = camera.position.distanceTo(o.position);
-        o.geometry = dist > 25 ? o.lod.low : o.lod.high;
-        o.castShadow = dist < 50;
-      });
-
-      if (!isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
-        const dir = new THREE.Vector3();
-        if (keys.KeyW) dir.z -= 1;
-        if (keys.KeyS) dir.z += 1;
-        if (keys.KeyA) dir.x -= 1;
-        if (keys.KeyD) dir.x += 1;
-        if (gp) {
-          dir.x += gp.axes[0];
-          dir.z += gp.axes[1];
-        }
-        dir.normalize().applyQuaternion(camera.quaternion);
-        dir.y = 0;
-        const speed = mods.speed ? (sprinting ? 0.9 : 0.6) : (sprinting ? 0.45 : 0.3);
-        const next = controls.getObject().position.clone().add(dir.multiplyScalar(speed));
-
-        if ((keys.Space || (gp && gp.buttons[0].pressed)) && !isJumping) {
-          velocityY = mods.superJump ? 0.7 : 0.35;
-          isJumping = true;
-        }
-        velocityY -= 0.02;
-        next.y += velocityY;
-        if (next.y <= 1.6) { next.y = 1.6; velocityY = 0; isJumping = false; }
-        if (!collides(next) || mods.noClip) controls.getObject().position.copy(next);
-
-        if (mods.autoReload && ammo <= 0 && !mods.infAmmo && reloadCooldown === 0) {
-          reloadCooldown = 60;
-          ammo = 0;
-          setTimeout(() => { ammo = weapons[currentWeapon].maxAmmo; }, 600);
+            renderer.render(scene, camera);
+            requestAnimationFrame(update);
         }
 
-        if (mods.autoHeal && health < 100 && !isDead) {
-          health = Math.min(100, health + 0.15);
-        }
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-        if (time - lastNetworkUpdate > 66) {
-          for (const id in connections) {
-            const conn = connections[id];
-            if (conn.open) {
-              const p = controls.getObject().position;
-              conn.send({ type: 'position', x: p.x, y: p.y, z: p.z, rotationY: controls.getObject().rotation.y, health, score });
-            }
-          }
-          lastNetworkUpdate = time;
-        }
-
-        if (gp) applyGamepadLook(gp);
-      }
-
-      bullets.forEach((b, i) => {
-        b.velocityY = b.velocityY || 0;
-        b.velocityY -= 0.008;
-        b.position.add(b.direction.clone().multiplyScalar(0.8));
-        b.position.y += b.velocityY;
-        b.age = (b.age || 0) + 0.016;
-        b.direction.multiplyScalar(0.99);
-        if (checkBulletHit(b)) {
-          scene.remove(b);
-          bullets.splice(i, 1);
-        } else if (b.position.length() > 200 || b.position.y < 0 || b.age > 4) {
-          scene.remove(b);
-          bullets.splice(i, 1);
-        }
-      });
-
-      updateESPAndTracers();
-      requestIdleCallback(updateMinimap);
-
-      if (mods.aimbot && isAiming && !mods.silentAim) {
-        const best = Object.values(remotePlayers).reduce((best, rp) => {
-          const d = camera.position.distanceTo(rp.mesh.position);
-          return d < best.dist && (!mods.espTeam || rp.team !== (remotePlayers[peer.id]?.team || 0)) ? { rp, dist: d } : best;
-        }, { dist: Infinity, rp: null });
-        if (best.rp) {
-          let tgt = best.rp.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
-          if (mods.bulletPrediction) {
-            const velocity = best.rp.mesh.position.clone().sub(best.rp.lastPosition || tgt).multiplyScalar(10);
-            tgt.add(velocity.multiplyScalar(0.1));
-          }
-          const dirQ = tgt.sub(camera.position).normalize();
-          const tq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), dirQ);
-          camera.quaternion.slerp(tq, aimbotSmoothness);
-          controls.getObject().quaternion.copy(camera.quaternion);
-        }
-      }
-
-      if (mods.triggerbot && !isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
-        const best = Object.values(remotePlayers).reduce((best, rp) => {
-          const d = camera.position.distanceTo(rp.mesh.position);
-          return d < best.dist && (!mods.espTeam || rp.team !== (remotePlayers[peer.id]?.team || 0)) ? { rp, dist: d } : best;
-        }, { dist: Infinity, rp: null });
-        if (best.rp) {
-          const pos = best.rp.mesh.position.clone().add(new THREE.Vector3(0, 1, 0));
-          if (mods.bulletPrediction) {
-            const velocity = best.rp.mesh.position.clone().sub(best.rp.lastPosition || pos).multiplyScalar(10);
-            pos.add(velocity.multiplyScalar(0.1));
-          }
-          const vec = pos.project(camera);
-          if (Math.abs(vec.x) < 0.03 && Math.abs(vec.y) < 0.03 && !triggerbotCooldown) {
-            spawnBullet();
-            triggerbotCooldown = mods.rapidFire ? 2 : weapons[currentWeapon].shootCooldown;
-          }
-        }
-      }
-      if (triggerbotCooldown) triggerbotCooldown--;
-
-      if (gp && gp.buttons[7].pressed && shootCooldown === 0 && !isDead && chatInput.style.display !== "block" && modMenu.style.display !== "block") {
-        spawnBullet();
-        shootCooldown = mods.rapidFire ? 2 : weapons[currentWeapon].shootCooldown;
-      }
-      if (shootCooldown) shootCooldown--;
-      if (reloadCooldown) reloadCooldown--;
-      recoilAngle = Math.max(0, recoilAngle - 0.1);
-
-      // Update rain
-      if (weather === 'rain') {
-        const rain = scene.getObjectByName('rain');
-        if (rain) {
-          const positions = rain.geometry.attributes.position.array;
-          for (let i = 1; i < positions.length; i += 3) {
-            positions[i] -= 0.1;
-            if (positions[i] < 0) positions[i] = 50;
-          }
-          rain.geometry.attributes.position.needsUpdate = true;
-        }
-      }
-
-      renderer.render(scene, camera);
-      healthDisplay.textContent = isDead ? "DEAD" : Math.round(health);
-      ammoDisplay.textContent = mods.infAmmo ? "∞" : ammo;
-      scoreDisplay.textContent = score;
-      weaponDisplay.textContent = currentWeapon.charAt(0).toUpperCase() + currentWeapon.slice(1);
-      crosshair.style.color = crosshairColor;
-    }
-
-    let triggerbotCooldown = 0;
-    animate(0);
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      espCanvas.width = window.innerWidth;
-      espCanvas.height = window.innerHeight;
-    });
-  </script>
+        // Start game loop
+        update();
+    </script>
 </body>
 </html>
